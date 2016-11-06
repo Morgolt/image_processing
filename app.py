@@ -184,6 +184,9 @@ def detect_single_digits(edged_number):
         cv2.waitKey(0)
     return digits
 
+def detect_card_owner(fname):
+    return True
+
 
 def main(fname):
     card_number = detect_card_number(fname)
