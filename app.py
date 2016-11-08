@@ -35,7 +35,7 @@ def reducable_to_rect(contour):
     return len(reduced) == 4
 
 
-def detect_card_number(fname):
+def detect_card(fname):
     original = cv2.imread(fname)
     original = imutils.resize(original, width=600)
     image_area = np.prod(original.shape[:2])
@@ -154,10 +154,70 @@ def detect_card_number(fname):
     warped = cv2.warpPerspective(original, M, (card_width, card_height))
 
     card_number = warped[138:164, :]
+    return warped
+
+
+def detect_card_number(card):
+    card_number = card[138:164, :]
     return card_number
-    # cv2.imshow('warped', warped)
-    # cv2.imshow('card_number', card_number)
-    # cv2.waitKey(0)
+
+
+def show_image(image, image_name = "image"):
+    cv2.imshow(image_name, image)
+    cv2.waitKey(0)
+
+
+def detect_card_owner(card):
+    bottom_image = card[164:250, :]
+
+    # convert bottom_image to grayscale
+    bottom_image_proc = cv2.cvtColor(bottom_image, cv2.COLOR_BGR2GRAY)
+
+    # compute the Scharr gradient magnitude representation of the images
+    # in both the x and y direction
+    gradX = cv2.Sobel(bottom_image_proc, ddepth = cv2.CV_32F, dx = 1, dy = 0, ksize = -1)
+    gradY = cv2.Sobel(bottom_image_proc, ddepth = cv2.CV_32F, dx = 0, dy = 1, ksize = -1)
+
+    # subtract the y-gradient from the x-gradient
+    bottom_image_proc = cv2.subtract(gradX, gradY)
+    bottom_image_proc = cv2.convertScaleAbs(bottom_image_proc)
+
+    bottom_image_proc = cv2.blur(bottom_image_proc, (3, 3))
+    (_, bottom_image_proc) = cv2.threshold(bottom_image_proc, 225, 255, cv2.THRESH_BINARY)
+
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 1))
+    closed = cv2.morphologyEx(bottom_image_proc, cv2.MORPH_CLOSE, kernel)
+
+    show_image(closed)
+
+    bottom_image_proc = cv2.erode(closed, None, iterations = 3)
+    bottom_image_proc = cv2.dilate(bottom_image_proc, None, iterations = 2)   
+
+    show_image(bottom_image_proc)
+
+    bottom_image_with_cts = bottom_image.copy()
+
+    cts = cv2.findContours(bottom_image_proc.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+
+    big_contours = []
+    for c in cts:       
+        rect = cv2.boundingRect(c) #x y w h
+        if rect[2]*rect[3]>600:
+            big_contours.append(rect)
+        cv2.rectangle(bottom_image_with_cts,(rect[0],rect[1]),(rect[0]+rect[2],rect[1]+rect[3]),(0,255,0),2)
+    big_contours.sort(key = lambda x: np.sqrt((0 - x[0])^2 +  (0 - x[1])^2), reverse = False)
+    owner_contour = list(big_contours[0])
+
+    delta = 3
+    owner_contour[0] = owner_contour[0] - delta
+    owner_contour[1] = owner_contour[1] - delta
+    owner_contour[2] = int(owner_contour[2] + delta*2)
+    owner_contour[3] = owner_contour[3] + delta
+
+    owner = bottom_image[owner_contour[1]:owner_contour[1]+owner_contour[3], owner_contour[0]:owner_contour[0]+owner_contour[2]]
+
+    return owner
 
 
 def detect_single_digits(edged_number):
@@ -184,15 +244,11 @@ def detect_single_digits(edged_number):
         cv2.waitKey(0)
     return digits
 
-def detect_card_owner(fname):
-    return True
-
 
 def main(fname):
-    card_number = detect_card_number(fname)
-    gr_cn = cv2.cvtColor(card_number, cv2.COLOR_RGB2GRAY)
-    _, thresh = cv2.threshold(gr_cn, 150, 255, cv2.THRESH_BINARY)
-    detect_single_digits(thresh)
+    card = detect_card(fname)
+    owner = detect_card_owner(card)
+    show_image(owner)
 
 
 main('res/test3.jpg')
