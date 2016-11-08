@@ -2,7 +2,7 @@ import cv2
 import imutils
 import numpy as np
 from scipy import signal
-
+import glob, os
 
 # p, q - точки прямой
 # r, s - направляющие векторы
@@ -182,19 +182,16 @@ def detect_card_owner(card):
     bottom_image_proc = cv2.subtract(gradX, gradY)
     bottom_image_proc = cv2.convertScaleAbs(bottom_image_proc)
 
-    bottom_image_proc = cv2.blur(bottom_image_proc, (3, 3))
-    (_, bottom_image_proc) = cv2.threshold(bottom_image_proc, 225, 255, cv2.THRESH_BINARY)
+    #add some blur
+    bottom_image_proc = cv2.blur(bottom_image_proc, (5, 5))
 
+    (_, bottom_image_proc) = cv2.threshold(bottom_image_proc, 225, 255, cv2.THRESH_BINARY)
 
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 1))
     closed = cv2.morphologyEx(bottom_image_proc, cv2.MORPH_CLOSE, kernel)
 
-    show_image(closed)
-
     bottom_image_proc = cv2.erode(closed, None, iterations = 3)
-    bottom_image_proc = cv2.dilate(bottom_image_proc, None, iterations = 2)   
-
-    show_image(bottom_image_proc)
+    bottom_image_proc = cv2.dilate(bottom_image_proc, None, iterations = 3)       
 
     bottom_image_with_cts = bottom_image.copy()
 
@@ -209,11 +206,11 @@ def detect_card_owner(card):
     big_contours.sort(key = lambda x: np.sqrt((0 - x[0])^2 +  (0 - x[1])^2), reverse = False)
     owner_contour = list(big_contours[0])
 
-    delta = 3
+    delta = 4
     owner_contour[0] = owner_contour[0] - delta
     owner_contour[1] = owner_contour[1] - delta
-    owner_contour[2] = int(owner_contour[2] + delta*2)
-    owner_contour[3] = owner_contour[3] + delta
+    owner_contour[2] = owner_contour[2] + delta*2
+    owner_contour[3] = owner_contour[3] + delta*2
 
     owner = bottom_image[owner_contour[1]:owner_contour[1]+owner_contour[3], owner_contour[0]:owner_contour[0]+owner_contour[2]]
 
@@ -251,4 +248,5 @@ def main(fname):
     show_image(owner)
 
 
-main('res/test3.jpg')
+for file in os.listdir("res"):
+    main("res/" + file)
