@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 
-def create_trainset(fontfile, digitheight=30, create_thin = True):
+def create_trainset(fontfile, digitheight=30, create_gausian_noise = True, create_thin = True):
     for letter_str in string.ascii_uppercase:
 
         font_name = os.path.basename(fontfile).split(".")[0].replace(" ", "").lower()
@@ -34,10 +34,11 @@ def create_trainset(fontfile, digitheight=30, create_thin = True):
         cv2.imwrite('res/trainset/%s/%s_base.jpg' % (letter_str, font_name), letter_base)
 
         #base with gaussian noise
-        gaussian_noise = letter_base.copy()
-        cv2.randn(gaussian_noise, (0), (1))
-        letter_base_gaussian_noise = letter_base + gaussian_noise
-        cv2.imwrite('res/trainset/%s/%s_base_gaussian_noise.jpg' % (letter_str, font_name), letter_base_gaussian_noise)
+        if create_gausian_noise:
+            gaussian_noise = letter_base.copy()
+            cv2.randn(gaussian_noise, (0), (1))
+            letter_base_gaussian_noise = letter_base + gaussian_noise
+            cv2.imwrite('res/trainset/%s/%s_base_gaussian_noise.jpg' % (letter_str, font_name), letter_base_gaussian_noise)
 
         #thin litter
         if create_thin:

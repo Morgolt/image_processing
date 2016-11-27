@@ -4,6 +4,7 @@ import numpy as np
 from scipy import signal
 import glob, os
 import utils
+import knn
 
 # p, q - точки прямой
 # r, s - направляющие векторы
@@ -242,14 +243,59 @@ def detect_single_digits(edged_number):
         cv2.waitKey(0)
     return digits
 
+def recognize_owner(owner):
+    owner_gray = cv2.cvtColor(owner, cv2.COLOR_BGR2GRAY)
+    _, owner_gradient = cv2.threshold(owner_gray, 150, 255, cv2.THRESH_BINARY)
+
+    ymax = np.flatnonzero(owner_gradient.max(axis=0))
+    digits = []
+    digit_indices = []
+    i = 0
+    index = ymax[0]
+    count = 0
+    while i < len(ymax) - 1:
+        if ymax[i] + 1 == ymax[i + 1]:
+            count += 1
+        else:
+            digit_indices.append((index, ymax[i]))
+            index = ymax[i + 1]
+            count = 0
+        i += 1
+    if count:
+        digit_indices.append((index, ymax[i]))
+    for inds in digit_indices:
+        digits.append(owner_gradient[:, inds[0]:inds[1] + 1])
+    for digit in digits:
+        #find countour of letter
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 1))
+        digit_closed = cv2.morphologyEx(digit, cv2.MORPH_CLOSE, kernel)
+        cts = cv2.findContours(digit_closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+        cts.sort(key = cv2.contourArea, reverse = True)
+        digit_countour = cts[0]
+        digit_rect = cv2.boundingRect(digit_countour)
+        digit_base = digit[digit_rect[1]:digit_rect[1]+digit_rect[3], :]
+        roi = cv2.resize(digit_base, (20, 30))
+        show_image(roi)
+
+        roi = np.float32(roi.reshape((1, 30 * 20)))
+        ret = knn.model.classify(roi, 4)
+        print(str(ret)[2], end="")     
+    return digits
+
 
 def main(fname):
-    utils.create_test_model('res/fonts/OcrB Regular.ttf')
     card = detect_card(fname)
     owner = detect_card_owner(card)
-    show_image(owner)
+    recognize_owner(owner)
+    print()
 
-utils.create_trainset('res/fonts/OCR-A BT.ttf')
-utils.create_trainset('res/fonts/OCR-A-Std-Medium_33416.ttf')
-utils.create_trainset('res/fonts/OcrB Regular.ttf')
-utils.create_trainset('res/fonts/timesbd.ttf', create_thin = False)
+def create_trainsets():
+    utils.create_trainset('res/fonts/OCR-A BT.ttf', create_gausian_noise = False)
+    utils.create_trainset('res/fonts/OCR-A-Std-Medium_33416.ttf', create_gausian_noise = False)
+    utils.create_trainset('res/fonts/OcrB Regular.ttf', create_gausian_noise = False)
+    utils.create_trainset('res/fonts/timesbd.ttf', create_gausian_noise = False, create_thin = False)
+
+
+create_trainsets()
+knn.utils.write_to_csv()
+main("res/test3.jpg")

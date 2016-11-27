@@ -84,6 +84,6 @@ def write_to_csv(path='res/train.csv'):
             writer.writerow([*instance[0], instance[1]])
 
 
-if __name__ == '__main__':
-    # create_test_model('res/fonts/OcrB Regular.ttf')
-    train_knn()
+#if __name__ == '__main__':
+#    create_test_model('res/fonts/OcrB Regular.ttf')
+#    train_knn()
