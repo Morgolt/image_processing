@@ -1,13 +1,9 @@
-from uuid import uuid1
-
 import cv2
 import imutils
 import numpy as np
-from matplotlib import pyplot as plt
 from scipy import signal
-
-import knn
-
+import glob, os
+import utils
 
 # p, q - точки прямой
 # r, s - направляющие векторы
@@ -40,7 +36,7 @@ def reducable_to_rect(contour):
     return len(reduced) == 4
 
 
-def detect_card_number(fname):
+def detect_card(fname):
     original = cv2.imread(fname)
     original = imutils.resize(original, width=600)
     image_area = np.prod(original.shape[:2])
@@ -159,10 +155,67 @@ def detect_card_number(fname):
     warped = cv2.warpPerspective(original, M, (card_width, card_height))
 
     card_number = warped[138:164, :]
+    return warped
+
+
+def detect_card_number(card):
+    card_number = card[138:164, :]
     return card_number
-    # cv2.imshow('warped', warped)
-    # cv2.imshow('card_number', card_number)
-    # cv2.waitKey(0)
+
+
+def show_image(image, image_name = "image"):
+    cv2.imshow(image_name, image)
+    cv2.waitKey(0)
+
+
+def detect_card_owner(card):
+    bottom_image = card[164:250, :]
+
+    # convert bottom_image to grayscale
+    bottom_image_proc = cv2.cvtColor(bottom_image, cv2.COLOR_BGR2GRAY)
+
+    # compute the Scharr gradient magnitude representation of the images
+    # in both the x and y direction
+    gradX = cv2.Sobel(bottom_image_proc, ddepth = cv2.CV_32F, dx = 1, dy = 0, ksize = -1)
+    gradY = cv2.Sobel(bottom_image_proc, ddepth = cv2.CV_32F, dx = 0, dy = 1, ksize = -1)
+
+    # subtract the y-gradient from the x-gradient
+    bottom_image_proc = cv2.subtract(gradX, gradY)
+    bottom_image_proc = cv2.convertScaleAbs(bottom_image_proc)
+
+    #add some blur
+    bottom_image_proc = cv2.blur(bottom_image_proc, (5, 5))
+
+    (_, bottom_image_proc) = cv2.threshold(bottom_image_proc, 225, 255, cv2.THRESH_BINARY)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 1))
+    closed = cv2.morphologyEx(bottom_image_proc, cv2.MORPH_CLOSE, kernel)
+
+    bottom_image_proc = cv2.erode(closed, None, iterations = 3)
+    bottom_image_proc = cv2.dilate(bottom_image_proc, None, iterations = 3)
+
+    bottom_image_with_cts = bottom_image.copy()
+
+    cts = cv2.findContours(bottom_image_proc.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+
+    big_contours = []
+    for c in cts:
+        rect = cv2.boundingRect(c) #x y w h
+        if rect[2]*rect[3]>600:
+            big_contours.append(rect)
+        cv2.rectangle(bottom_image_with_cts,(rect[0],rect[1]),(rect[0]+rect[2],rect[1]+rect[3]),(0,255,0),2)
+    big_contours.sort(key = lambda x: np.sqrt((0 - x[0])^2 +  (0 - x[1])^2), reverse = False)
+    owner_contour = list(big_contours[0])
+
+    delta = 4
+    owner_contour[0] = owner_contour[0] - delta
+    owner_contour[1] = owner_contour[1] - delta
+    owner_contour[2] = owner_contour[2] + delta*2
+    owner_contour[3] = owner_contour[3] + delta*2
+
+    owner = bottom_image[owner_contour[1]:owner_contour[1]+owner_contour[3], owner_contour[0]:owner_contour[0]+owner_contour[2]]
+
+    return owner
 
 
 def detect_single_digits(edged_number):
@@ -190,114 +243,13 @@ def detect_single_digits(edged_number):
     return digits
 
 
-def projection_x(img, y0, h_l, show_plot=False):
-    projection = np.sum(img, axis=0)
-    Y0 = 0
-    HL = 0
-    i = np.array([0, 1, 2, 3, 4])
-    argmin = np.sum(projection)
-    for x in y0:
-        for y in h_l:
-            inds = np.add(x, np.multiply(y, i))
-            summ = np.sum(projection[inds])
-            if summ <= argmin:
-                argmin = summ
-                Y0 = x
-                HL = y
-
-    inds = np.add(Y0, np.multiply(HL, i))
-    if show_plot:
-        plt.plot(projection)
-        ymax = np.max(projection)
-        for x in inds:
-            plt.plot((x, x), (0, ymax), '-r')
-        plt.xlim([0, len(projection)])
-        plt.show()
-    return inds
-
-
-def segment_digits(contrs, show_img=False):
-    ymax = np.flatnonzero(contrs.max(axis=0))
-    digits = []
-    digit_indices = []
-    i = 0
-    index = ymax[0]
-    count = 0
-    while i < len(ymax) - 1:
-        if ymax[i] + 1 == ymax[i + 1]:
-            count += 1
-        else:
-            digit_indices.append((index, ymax[i]))
-            index = ymax[i + 1]
-            count = 0
-        i += 1
-    if count:
-        digit_indices.append((index, ymax[i]))
-    for inds in digit_indices:
-        width = inds[1] - inds[0]
-        if width < 10:
-            continue
-        elif width > 17:
-            cnt = np.math.floor(width / 17)
-            if cnt > 3:
-                cnt = 3
-            div = [(inds[0] + 17 * (j - 1), 17 * j) for j in range(1, cnt + 2)]
-            digits.extend([contrs[:, ind[0]:ind[1] + 1] for ind in div])
-        else:
-            digits.append(contrs[:, inds[0]:inds[1] + 1])
-        if len(digits) == 16:
-            break
-    if show_img:
-        for digit in digits:
-            roi = cv2.resize(digit, (20, 30))
-            cv2.imwrite('res/temp/%d.jpg' % uuid1(), roi)
-            i += 1
-    return digits
-
-
-def recognize_block(block, show_img=False):
-    dsize = (90, 30)
-    block = cv2.resize(block, dsize)
-    block = cv2.cvtColor(block, cv2.COLOR_BGR2GRAY)
-    block = cv2.GaussianBlur(block, (3, 3), sigmaX=1, sigmaY=1)
-    contrs = get_gradient(block, thresh=100)
-    kernel = np.ones((3, 1), np.uint8)
-    contrs = cv2.morphologyEx(contrs, cv2.MORPH_CLOSE, kernel)
-    digits_block = segment_digits(contrs)
-    block = []
-    for digit in digits_block:
-        roi = cv2.resize(digit, (20, 30))
-        if show_img:
-            cv2.imshow('thresh_block', roi)
-            cv2.waitKey(0)
-        roi = np.float32(roi.reshape((1, 30 * 20)))
-        # ret, result, neighbours, dist = cv2.ml.model.findNearest(roi, 3)
-        ret = knn.model.classify(roi)
-        block.append(int(ret))
-
-    return block
-
-
-def get_printable_number(number):
-    a = [str(x) for x in number]
-    a = [a[x:x + 4] for x in range(0, 16, 4)]
-    result = 'Номер карты:\n{a[0]} {a[1]} {a[2]} {a[3]}'.format(a=[''.join(d) for d in a])
-    return result
-
-
 def main(fname):
-    card_number = detect_card_number(fname)
-    dsize = (400, 30)
-    card_number = cv2.resize(card_number, dsize)
-    gray = cv2.cvtColor(card_number, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    y0 = np.arange(15, 40, 1)
-    h_l = np.arange(70, 90, 1)
-    inds = projection_x(blur, y0, h_l, False)
-    numbers = []
-    for i in range(0, 4):
-        numbers.extend(recognize_block(card_number[:, inds[i]:inds[i + 1]], False))
-    print(get_printable_number(numbers))
+    utils.create_test_model('res/fonts/OcrB Regular.ttf')
+    card = detect_card(fname)
+    owner = detect_card_owner(card)
+    show_image(owner)
 
-
-main('res/test%d.jpg' % 1)
+utils.create_trainset('res/fonts/OCR-A BT.ttf')
+utils.create_trainset('res/fonts/OCR-A-Std-Medium_33416.ttf')
+utils.create_trainset('res/fonts/OcrB Regular.ttf')
+utils.create_trainset('res/fonts/timesbd.ttf', create_thin = False)

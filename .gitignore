@@ -1,0 +1,23 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/image_processing/v14/.suo
+/image_processing.sln
+/image_processing.pyproj
+/dont_upload.py
+/image_processing.pyproj.user
+/res/thecreditcard.jpeg
+/res/pic_1358296184.jpg
+/res/opvd6.jpg
+/res/binbank_card.png
+/res/aaa.jpg
+/res/510de55a6502302549b33c0e21d94cad.jpg
+/res/272c5a09e9ffcd767d2f88728a2fde90.jpg
+/res/25717_900.jpg
+/res/trainset
+/__pycache__
+/.vs/kirill/v14
+/kirill.pyproj
+/kirill.sln
+/knn/__pycache__
