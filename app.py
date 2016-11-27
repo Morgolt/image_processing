@@ -3,6 +3,7 @@ import imutils
 import numpy as np
 from scipy import signal
 import glob, os
+import utils
 
 # p, q - точки прямой
 # r, s - направляющие векторы
@@ -243,10 +244,12 @@ def detect_single_digits(edged_number):
 
 
 def main(fname):
+    utils.create_test_model('res/fonts/OcrB Regular.ttf')
     card = detect_card(fname)
     owner = detect_card_owner(card)
     show_image(owner)
 
-
-for file in os.listdir("res"):
-    main("res/" + file)
+utils.create_trainset('res/fonts/OCR-A BT.ttf')
+utils.create_trainset('res/fonts/OCR-A-Std-Medium_33416.ttf')
+utils.create_trainset('res/fonts/OcrB Regular.ttf')
+utils.create_trainset('res/fonts/timesbd.ttf', create_thin = False)
