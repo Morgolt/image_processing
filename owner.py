@@ -23,6 +23,6 @@ def recognize_owner(owner):
         # show_image(roi)
 
         roi = np.float32(roi.reshape((1, 30 * 20)))
-        ret = knn.symbol_model.classify(roi, 4)
+        ret = knn.symbol_model.classify(roi, 5)
         print(str(ret)[2], end="")
     return symbols

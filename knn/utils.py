@@ -13,6 +13,10 @@ from knn.core import KNearestNeighbors
 
 def create_digits_trainset(fontfile, digitheight=30):
     for n in range(10):
+        font_name = os.path.basename(fontfile).split(".")[0].replace(' ', '').lower()
+        main_path = 'res/trainset/digits/%d' % n
+        if not os.path.exists(main_path):
+            os.makedirs(main_path)
         # region basic digit
         ttfont = ImageFont.truetype(fontfile, digitheight + 9)
         pil_im = Image.new('RGB', (20, digitheight))
@@ -21,12 +25,12 @@ def create_digits_trainset(fontfile, digitheight=30):
         gray = cv2.cvtColor(np.array(pil_im), cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
         _, thresh = cv2.threshold(blur, 10, 255, cv2.THRESH_BINARY)
-        cv2.imwrite('res/trainset/%d/bt_2.jpg' % n, thresh)
+        cv2.imwrite(os.path.join(main_path, '%s_bt_2.jpg' % font_name), thresh)
         # endregion
         # region add gaussian noise
         gaussian_noise = thresh.copy()
         cv2.randn(gaussian_noise, (0), (10))
-        cv2.imwrite('res/trainset/%d/bg_2.jpg' % n, thresh + gaussian_noise)
+        cv2.imwrite(os.path.join(main_path, '%s_bg_2.jpg' % font_name), thresh + gaussian_noise)
         # endregion
         # region salt&pepper noise
         s_vs_p = 0.5
@@ -43,7 +47,7 @@ def create_digits_trainset(fontfile, digitheight=30):
         coords = [np.random.randint(0, i - 1, int(num_pepper))
                   for i in thresh.shape]
         out[coords] = 0
-        cv2.imwrite('res/trainset/%d/bsp_2.jpg' % n, out)
+        cv2.imwrite(os.path.join(main_path, '%s_bsp_2.jpg' % font_name), out)
         # endregion
 
 
@@ -52,10 +56,13 @@ def train_knn(is_letters):
     return model
 
 
-def preprocess_train():
+def preprocess_train(is_letters):
     samples = np.empty((0, 30 * 20))
     responses = []
-    train_set_directory = 'res/trainset/'
+    if is_letters:
+        train_set_directory = 'res/trainset/letters'
+    else:
+        train_set_directory = 'res/trainset/digits'
     for class_dir in os.listdir(train_set_directory):
         path = os.path.join(train_set_directory, class_dir)
         for filename in os.listdir(path):
@@ -86,7 +93,7 @@ def read_from_csv(is_letters):
 def write_to_csv(path, is_letters):
     with open(path, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        train = preprocess_train()
+        train = preprocess_train(is_letters)
         for instance in train:
             writer.writerow([*instance[0], instance[1]])
 
@@ -97,7 +104,7 @@ def create_letters_trainset(fontfile, create_gausian_noise=True, create_thin=Tru
         font_name = os.path.basename(fontfile).split(".")[0].replace(" ", "").lower()
 
         # create dir for trainset
-        directory = 'res/trainset/%s' % letter_str
+        directory = 'res/trainset/letters/%s' % letter_str
         if not os.path.exists(directory):
             os.makedirs(directory)
 
@@ -116,20 +123,20 @@ def create_letters_trainset(fontfile, create_gausian_noise=True, create_thin=Tru
         letter_base = gray[letter_rect[1]:letter_rect[1] + letter_rect[3],
                            letter_rect[0]:letter_rect[0] + letter_rect[2]]
         letter_base = cv2.resize(letter_base, (20, 30))
-        cv2.imwrite('res/trainset/%s/%s_base.jpg' % (letter_str, font_name), letter_base)
+        cv2.imwrite('res/trainset/letters/%s/%s_base.jpg' % (letter_str, font_name), letter_base)
 
         # base with gaussian noise
         if create_gausian_noise:
             gaussian_noise = letter_base.copy()
             cv2.randn(gaussian_noise, (0), (1))
             letter_base_gaussian_noise = letter_base + gaussian_noise
-            cv2.imwrite('res/trainset/%s/%s_base_gaussian_noise.jpg' % (letter_str, font_name),
+            cv2.imwrite('res/trainset/letters/%s/%s_base_gaussian_noise.jpg' % (letter_str, font_name),
                         letter_base_gaussian_noise)
 
         # thin litter
         if create_thin:
             letter_img_thin = cv2.erode(letter_base, None, iterations=1)
-            cv2.imwrite('res/trainset/%s/%s_thin.jpg' % (letter_str, font_name), letter_img_thin)
+            cv2.imwrite('res/trainset/letters/%s/%s_thin.jpg' % (letter_str, font_name), letter_img_thin)
 
 
 def create_trainsets():
@@ -137,7 +144,24 @@ def create_trainsets():
     create_letters_trainset('res/fonts/OCR-A-Std-Medium_33416.ttf', create_gausian_noise=False)
     create_letters_trainset('res/fonts/OcrB Regular.ttf', create_gausian_noise=False)
     create_letters_trainset('res/fonts/timesbd.ttf', create_gausian_noise=False, create_thin=False)
+    #create_digits_trainset('res/fonts/OCR-A BT.ttf') #(-3, -11) +14
+    #create_digits_trainset('res/fonts/OCR-A-Std-Medium_33416.ttf') # (-3, 0) +6
+    #create_digits_trainset('res/fonts/OcrB Regular.ttf') # (-1, -1) +9
 
+
+def write_csv_trainset(is_letters):
+    if is_letters:
+        path = 'res/train_letters.csv'
+    else:
+        path = 'res/train_digits.csv'
+    write_to_csv(path, is_letters)
 
 if __name__ == '__main__':
-    train_knn()
+    if not os.path.exists('res/trainset/letters'):
+        create_trainsets()
+    if not os.path.exists('res/train_digits.csv'):
+        write_csv_trainset(False)
+    if not os.path.exists('res/train_letters.csv'):
+        write_csv_trainset(True)
+
+
