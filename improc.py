@@ -160,3 +160,15 @@ def detect_card_owner(card):
                          owner_contour[0]:owner_contour[0] + owner_contour[2]]
 
     return owner
+
+
+def threshold(img, thresh, value, flag):
+    for x in np.nditer(img, op_flags=['readwrite']):
+        if x > thresh:
+            x[...] = value
+        else:
+            x[...] = 0
+    return img
+
+
+
