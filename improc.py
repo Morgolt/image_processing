@@ -2,8 +2,10 @@ import cv2
 import imutils
 import numpy as np
 from scipy import signal
+import matplotlib.pyplot as plt
 
-from utils import get_gradient, reducable_to_rect, intersection_point
+from utils import get_gradient, reducable_to_rect, intersection_point, show_image
+
 
 # todo: list of cv functions to implement
 # cv2.Sobel
@@ -23,12 +25,13 @@ from utils import get_gradient, reducable_to_rect, intersection_point
 # cv2.erode
 # cv2.dilate
 # cv2.boundingRect
-# cv2.threshold
 # maybe more, check
 
 def detect_card(fname):
     original = cv2.imread(fname)
     original = imutils.resize(original, width=600)
+    plt.imshow(original)
+    plt.show()
     image_area = np.prod(original.shape[:2])
 
     image = cv2.GaussianBlur(original, (5, 5), sigmaX=1, sigmaY=1)
@@ -59,6 +62,9 @@ def detect_card(fname):
 
     only_contour = np.zeros_like(image)
     cv2.drawContours(only_contour, [contour], -1, (25, 255, 225), 1)
+
+    plt.imshow(only_contour)
+    plt.show()
 
     axis_y = [np.count_nonzero(line) for line in only_contour]
     axis_x = [np.count_nonzero(line) for line in cv2.transpose(only_contour)]
@@ -103,11 +109,15 @@ def detect_card(fname):
                       dtype="float32")
     M = cv2.getPerspectiveTransform(points, warped)
     warped = cv2.warpPerspective(original, M, (card_width, card_height))
+    plt.imshow(warped)
+    plt.show()
     return warped
 
 
 def detect_card_number(card):
     card_number = card[138:164, :]
+    plt.imshow(card_number)
+    plt.show()
     return card_number
 
 
@@ -157,8 +167,10 @@ def detect_card_owner(card):
     owner_contour[3] += delta * 2
 
     owner = bottom_image[owner_contour[1]:owner_contour[1] + owner_contour[3],
-                         owner_contour[0]:owner_contour[0] + owner_contour[2]]
+            owner_contour[0]:owner_contour[0] + owner_contour[2]]
 
+    plt.imshow(owner)
+    plt.show()
     return owner
 
 
@@ -169,6 +181,3 @@ def threshold(img, thresh, value, flag):
         else:
             x[...] = 0
     return img
-
-
-

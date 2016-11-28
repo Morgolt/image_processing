@@ -12,4 +12,4 @@ def main(fname):
     number.recognize_number(number_img)
     owner.recognize_owner(owner_img)
 
-main('res/test3.jpg')
+main('res/test2.jpg')

@@ -6,21 +6,28 @@ import knn
 import utils
 
 
-def recognize_number(number_image):
+def recognize_number(number_image, show_img=True):
     dsize = (400, 30)
     card_number = cv2.resize(number_image, dsize)
     gray = cv2.cvtColor(card_number, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     y0 = np.arange(15, 40, 1)
     h_l = np.arange(70, 90, 1)
-    inds = projection_x(blur, y0, h_l, False)
+    inds = projection_x(blur, y0, h_l, True)
     numbers = []
+    if show_img:
+        fig = plt.figure()
+        for i in range(0, 4):
+            a = fig.add_subplot(1, 4, i + 1)
+            image_plot = plt.imshow(card_number[:, inds[i]:inds[i + 1]])
+        plt.show()
     for i in range(0, 4):
         numbers.extend(recognize_block(card_number[:, inds[i]:inds[i + 1]], False))
+
     print(get_printable_number(numbers))
 
 
-def projection_x(img, y0, h_l, show_plot=False):
+def projection_x(img, y0, h_l, show_plot=True):
     projection = np.sum(img, axis=0)
     Y0 = 0
     HL = 0
@@ -58,9 +65,6 @@ def recognize_block(block, show_img=False):
     block = []
     for digit in digits_block:
         roi = cv2.resize(digit, (20, 30))
-        if show_img:
-            cv2.imshow('thresh_block', roi)
-            cv2.waitKey(0)
         roi = np.float32(roi.reshape((1, 30 * 20)))
         ret = knn.digits_model.classify(roi)
         block.append(int(ret))

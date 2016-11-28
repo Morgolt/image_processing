@@ -1,15 +1,20 @@
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
+import improc
 import knn
-from utils import show_image, detect_single_symbols
+from utils import detect_single_symbols
 
 
 def recognize_owner(owner):
     owner_gray = cv2.cvtColor(owner, cv2.COLOR_BGR2GRAY)
-    _, owner_gradient = cv2.threshold(owner_gray, 150, 255, cv2.THRESH_BINARY)
+    owner_gradient = improc.threshold(owner_gray, 150, 255, cv2.THRESH_BINARY)
 
-    symbols = detect_single_symbols(owner_gradient, True)
+    plt.imshow(owner_gradient, cmap='bone',  interpolation='nearest')
+    plt.show()
+
+    symbols = detect_single_symbols(owner_gradient, False)
     for symbol in symbols:
         # find countour of letter
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 1))
